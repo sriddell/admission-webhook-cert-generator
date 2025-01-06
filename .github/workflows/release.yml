@@ -1,0 +1,73 @@
+name: Release
+
+on: push
+
+permissions:
+  contents: write
+
+env:
+  GOPROXY: direct
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ join(steps.*.conclusion) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Install Dependencies
+        run: |
+          go version
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+      - name: Build
+        run: go build
+      - name: Vet
+        run: go vet -v
+      # -
+      # name: staticcheck
+      # run: staticcheck -f stylish -checks all  ./...
+      - name: gocyclo
+        run: gocyclo .
+
+  release:
+    needs: tests
+    if: ${{startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ join(steps.*.conclusion) }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+      - run: go version
+      - name: GoReleaser Action
+        uses: goreleaser/goreleaser-action@v6.1.0
+        with:
+          version: ~> v2
+          args: release --clean 
+      - name: Upload assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: admission-webhook-cert-generator
+          path: dist/*
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
