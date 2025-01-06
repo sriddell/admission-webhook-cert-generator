@@ -17,10 +17,10 @@ import (
 
 func main() {
 	var caPEM, serverCertPEM, serverPrivKeyPEM *bytes.Buffer
-	orgDomain := os.Getenv("ORG_DOMAIN")
-	if orgDomain == "" {
-		log.Fatal("ORG_DOMAIN environment variable not set")
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: main <orgDomain>")
 	}
+	orgDomain := os.Args[1]
 	// CA config
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2020),
