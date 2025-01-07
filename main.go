@@ -15,17 +15,12 @@ import (
 
 )
 
-type Query struct {
-	OrgDomain string `json:"orgDomain"`
-}
-
 func main() {
 	var caPEM, serverCertPEM, serverPrivKeyPEM *bytes.Buffer
-	var query Query
-	if err := json.NewDecoder(os.Stdin).Decode(&query); err != nil {
-		log.Fatalf("failed to decode JSON from stdin: %v", err)
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: main <orgDomain>")
 	}
-	orgDomain := query.OrgDomain
+	orgDomain := os.Args[1]
 	// CA config
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(2020),
@@ -103,32 +98,35 @@ func main() {
 		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivKey),
 	})
 
-
-	serverCertPEMBase64 := base64.StdEncoding.EncodeToString(serverCertPEM.Bytes())
-	serverPrivKeyPEMBase64 := base64.StdEncoding.EncodeToString(serverPrivKeyPEM.Bytes())
-	caPEMBase64 := base64.StdEncoding.EncodeToString(caPEM.Bytes())
-
-	result := &Result{
-		ServerCertPEMBase64: serverCertPEMBase64,
-		ServerPrivKeyPEMBases64: serverPrivKeyPEMBase64,
-		CaPEMBase64: caPEMBase64,
-	}
-
-	result := &Result{
-		ServerCertPEMBase64: serverCertPEM.String(),
-	}
-
-	resultJSON, err := json.Marshal(result)
+	err = WriteFile("serverCertPEM", serverCertPEM)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
-	fmt.Println(string(resultJSON))
+
+	err = WriteFile("serverPrivKeyPEM", serverPrivKeyPEM)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	err = WriteFile("caPEM", caPEM)
+	if err != nil {
+		log.Panic(err)
+	}	
+	// createMutationConfig(bytes.NewBuffer(caBytes))
 
 }
 
-type Result struct {
-	ServerCertPEMBase64 string `json:"serverCertPEMBase64"`
-	ServerPrivKeyPEMBases64 string `json:"serverPrivKeyPEMBases64"`
-	CaPEMBase64 string `json:"caPEMBase64"`
-}
+// WriteFile writes data in the file at the given path
+func WriteFile(filepath string, sCert *bytes.Buffer) error {
+	f, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
+	_, err = f.Write(sCert.Bytes())
+	if err != nil {
+		return err
+	}
+	return nil
+}
